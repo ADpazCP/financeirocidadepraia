@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Controle Financeiro - Igreja</title>
+<style>
+:root {
+  --green: #2e7d32;
+  --green-light: #81c784;
+  --red: #d32f2f;
+  --red-light: #ffcdd2;
+  --bg: #f9f9f9;
+  --input-font: 14px;
+  --input-radius: 4px;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  margin: 0;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+.container {
+  width: 100%;
+  max-width: 1000px;
+  background: #fff;
+  border-radius: var(--input-radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.header {
+  text-align: center;
+  border-bottom: 2px solid var(--green-light);
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+.header-text h1 { margin:0;color:var(--green);font-size:22px;}
+.header-text h2 { margin:0;color:var(--green-light);font-size:14px;font-weight:400;}
+.header-text h3 { margin:6px 0 0 0;color:var(--green);font-size:15px;}
+.id-container { margin-top: 8px;color:var(--green);font-weight:bold;}
+.info-section, .summary-section { display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px; }
+.info-item, .summary-item { flex:1; min-width:150px;}
+.info-item label, .summary-item label { display:block;font-weight:700;color:var(--green);margin-bottom:6px;font-size:13px;}
+input, select {
+  width:100%;
+  padding:8px;
+  border-radius:var(--input-radius);
+  border:1px solid #ccc;
+  font-size:var(--input-font);
+  box-sizing:border-box;
+  transition:border 0.15s;
+  text-transform:uppercase;
+}
+input:focus, select:focus { border-color: var(--green); outline:none; }
+.summary-item { text-align:center;border:2px solid var(--green-light);padding:10px;border-radius:var(--input-radius);background:#f0f9f0;}
+.summary-item span { font-weight:700;font-size:15px;color:var(--green); }
+.table-section { overflow-x:auto;margin-bottom:12px; }
+table { width:100%;border-collapse:collapse;min-width:600px;background:#fff;}
+th, td { padding:6px;text-align:center;border:1px solid #ccc;font-size:13px;}
+thead { background: var(--green-light); color:#fff; }
+
+.saida-row { color: var(--red); background-color: var(--red-light); }
+
+.action-buttons { display:flex;justify-content:flex-end;gap:10px;margin-bottom:12px; }
+button { cursor:pointer;padding:8px 14px;border-radius:var(--input-radius);border:none;font-size:14px;transition:background 0.2s;height:36px;display:flex;align-items:center;justify-content:center;}
+#addRowBtn { background: var(--green-light); color:#fff; }
+#addRowBtn:hover { background: var(--green); }
+#saveBtn { background: var(--green); color:#fff; }
+#saveBtn:hover { background:#1b5e20; }
+.remove-btn { background:#f44336; color:#fff; padding:6px 8px; font-size:13px; border-radius:var(--input-radius);}
+.remove-btn:hover { background:#c62828; }
+
+.loading, .success-message, .error-message { display:none;padding:8px;border-radius:var(--input-radius);text-align:center;font-weight:600;margin-bottom:10px;}
+.loading { background:#fff7e6;color:#8a6a00;border:1px solid #ffd27a; }
+.success-message { background:#e8f7e8;color:#2e7d32;border:1px solid #b6e4b6;}
+.error-message { background:#ffecec;color:#a12;border:1px solid #f5b6b6; }
+
+/* Ajuste proporcional das colunas da tabela */
+table colgroup col:nth-child(1) { width:15%; }
+table colgroup col:nth-child(2) { width:50%; }
+table colgroup col:nth-child(3) { width:15%; }
+table colgroup col:nth-child(4) { width:20%; }
+.mov-descricao input { width:100%; box-sizing:border-box; text-align:left; }
+.mov-doc input, .mov-valor input { width:100%; box-sizing:border-box; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <div class="header-text">
+      <h1>Igreja Evangélica Assembleia de Deus</h1>
+      <h2>Ministério Internacional Paz & Vida</h2>
+      <h3>Movimentação financeira - Controle interno</h3>
+    </div>
+    <div class="id-container">ID: <span id="current-id">Carregando...</span></div>
+  </header>
+
+  <form id="financeForm">
+    <div class="info-section">
+      <div class="info-item">
+        <label for="dataInput">Data</label>
+        <input id="dataInput" type="date" required />
+      </div>
+      <div class="info-item">
+        <label for="semanaSelect">Semana</label>
+        <select id="semanaSelect" required></select>
+      </div>
+      <div class="info-item">
+        <label for="movimentadorInput">Movimentador</label>
+        <input id="movimentadorInput" type="text" placeholder="Nome de quem movimenta" required />
+      </div>
+    </div>
+
+    <div class="summary-section">
+      <div class="summary-item">
+        <label>Total Entradas</label>
+        <span id="total-entradas">R$ 0,00</span>
+      </div>
+      <div class="summary-item">
+        <label>Total Saídas</label>
+        <span id="total-saidas">R$ 0,00</span>
+      </div>
+      <div class="summary-item">
+        <label>Saldo</label>
+        <span id="saldo-final">R$ 0,00</span>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <table>
+        <colgroup>
+          <col>
+          <col>
+          <col>
+          <col>
+          <col>
+        </colgroup>
+        <thead>
+          <tr>
+            <th>TIPO</th>
+            <th>DESCRIÇÃO</th>
+            <th>NUMERO DOC</th>
+            <th>VALOR</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="movimentacoes-body"></tbody>
+      </table>
+    </div>
+
+    <div class="action-buttons">
+      <button type="button" id="addRowBtn">Adicionar Linha</button>
+      <button type="submit" id="saveBtn">Salvar na Planilha</button>
+    </div>
+
+    <div class="loading" id="loading">Enviando dados, por favor aguarde...</div>
+    <div class="success-message" id="success-message">
+      Dados salvos com sucesso! <div>ID da transação: <span id="saved-id"></span></div>
+    </div>
+    <div class="error-message" id="error-message">Ocorreu um erro ao salvar os dados.</div>
+  </form>
+</div>
+
+<script>
+const movimentacoesBody = document.getElementById('movimentacoes-body');
+const addRowBtn = document.getElementById('addRowBtn');
+const form = document.getElementById('financeForm');
+const loadingEl = document.getElementById('loading');
+const successEl = document.getElementById('success-message');
+const errorEl = document.getElementById('error-message');
+const totalEntradasSpan = document.getElementById('total-entradas');
+const totalSaidasSpan = document.getElementById('total-saidas');
+const saldoFinalSpan = document.getElementById('saldo-final');
+const semanaSelect = document.getElementById('semanaSelect');
+const dataInput = document.getElementById('dataInput');
+const movimentadorInput = document.getElementById('movimentadorInput');
+const currentIdSpan = document.getElementById('current-id');
+const savedIdSpan = document.getElementById('saved-id');
+let currentId = '';
+const scriptURL = "https://script.google.com/macros/s/AKfycbz2l1yPqR3j2o3XE8AGPGISsjG8yVWq6_8TFNDPeMC54hDpymQ_-iwwlPVyjTjcO1pi4Q/exec";
+
+function generateId() { return new Date().toISOString().replace(/[-:.TZ]/g,''); }
+function updateId() { currentId = generateId(); currentIdSpan.textContent = currentId; }
+
+function generateWeekOptions(baseDate) {
+  const date = baseDate ? new Date(baseDate) : new Date();
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  semanaSelect.innerHTML = '';
+  let start = new Date(firstDay), count=1;
+  while(start <= lastDay){
+    let end = new Date(start);
+    end.setDate(start.getDate()+6);
+    if(end>lastDay) end=lastDay;
+    const opt = document.createElement('option');
+    opt.value = `Semana ${count} - ${start.getDate()}/${month+1} a ${end.getDate()}/${month+1}`;
+    opt.textContent = opt.value;
+    semanaSelect.appendChild(opt);
+    start.setDate(start.getDate()+7);
+    count++;
+  }
+}
+
+function addRow(tipo='Entrada', desc='', doc='', valor=0){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td><select class="mov-tipo">
+      <option value="Entrada" ${tipo==='Entrada'?'selected':''}>Entrada</option>
+      <option value="Saída" ${tipo==='Saída'?'selected':''}>Saída</option>
+    </select></td>
+    <td class="mov-descricao"><input type="text" value="${desc}" required></td>
+    <td class="mov-doc">
+      <input type="text" value="${doc}"
+        onkeydown="return /^[0-9.-]$|Backspace|Delete|ArrowLeft|ArrowRight|Tab/.test(event.key)"
+        onpaste="event.preventDefault(); let paste=event.clipboardData.getData('text'); this.value=paste.replace(/[^0-9.-]/g,'');"
+      >
+    </td>
+    <td class="mov-valor"><input type="number" step="0.01" min="0" value="${valor>0?valor.toFixed(2):''}" required></td>
+    <td><button type="button" class="remove-btn">Remover</button></td>
+  `;
+  movimentacoesBody.appendChild(tr);
+  tr.querySelector('.remove-btn').onclick = ()=>{ tr.remove(); calculateTotals(); }
+  tr.querySelector('.mov-tipo').onchange = ()=>{ updateRowStyle(tr); calculateTotals(); }
+  tr.querySelectorAll('input').forEach(el=>el.oninput=calculateTotals);
+  updateRowStyle(tr);
+  calculateTotals();
+}
+
+function updateRowStyle(row){
+  const tipo = row.querySelector('.mov-tipo').value;
+  if(tipo==='Saída') row.classList.add('saida-row'); else row.classList.remove('saida-row');
+}
+
+function calculateTotals(){
+  let entradas=0, saidas=0;
+  movimentacoesBody.querySelectorAll('tr').forEach(row=>{
+    const tipo = row.querySelector('.mov-tipo').value;
+    const val = parseFloat(row.querySelector('.mov-valor input').value) || 0;
+    tipo==='Entrada'?entradas+=val:saidas+=val;
+  });
+  totalEntradasSpan.textContent = `R$ ${entradas.toFixed(2).replace('.',',')}`;
+  totalSaidasSpan.textContent = `R$ ${saidas.toFixed(2).replace('.',',')}`;
+  saldoFinalSpan.textContent = `R$ ${(entradas-saidas).toFixed(2).replace('.',',')}`;
+}
+
+form.addEventListener('submit', ev=>{
+  ev.preventDefault();
+  const movimentacoes=[];
+  movimentacoesBody.querySelectorAll('tr').forEach(row=>{
+    const tipo=row.querySelector('.mov-tipo').value;
+    const descricao=row.querySelector('.mov-descricao input').value;
+    const numerodoc=row.querySelector('.mov-doc input').value;
+    const valor=parseFloat(row.querySelector('.mov-valor input').value)||0;
+    if(descricao||numerodoc||valor>0) movimentacoes.push({tipo,descricao,numerodoc,valor});
+  });
+  if(movimentacoes.length===0){ alert('Preencha pelo menos uma linha.'); return; }
+
+  const payload={
+    data:dataInput.value,
+    semana:semanaSelect.value,
+    movimentador:movimentadorInput.value,
+    totalentradas:movimentacoes.filter(m=>m.tipo==='Entrada').reduce((s,m)=>s+m.valor,0),
+    totalsaidas:movimentacoes.filter(m=>m.tipo==='Saída').reduce((s,m)=>s+m.valor,0),
+    saldo:movimentacoes.filter(m=>m.tipo==='Entrada').reduce((s,m)=>s+m.valor,0)-movimentacoes.filter(m=>m.tipo==='Saída').reduce((s,m)=>s+m.valor,0),
+    movimentacoes,
+    id:currentId
+  };
+
+  loadingEl.style.display='block';
+  successEl.style.display='none';
+  errorEl.style.display='none';
+
+  fetch(scriptURL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  .then(()=>{
+    loadingEl.style.display='none';
+    successEl.style.display='block';
+    savedIdSpan.textContent=currentId;
+    movimentacoesBody.innerHTML='';
+    addRow();
+    updateId();
+    setTimeout(()=>successEl.style.display='none',5000);
+  })
+  .catch(err=>{
+    loadingEl.style.display='none';
+    errorEl.style.display='block';
+    errorEl.textContent=`Erro: ${err.message||err}`;
+  });
+});
+
+addRowBtn.onclick = ()=>addRow();
+dataInput.onchange = ()=>generateWeekOptions(dataInput.value);
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  dataInput.valueAsDate=new Date();
+  generateWeekOptions(new Date());
+  addRow();
+  updateId();
+});
+</script>
+</body>
+</html>
