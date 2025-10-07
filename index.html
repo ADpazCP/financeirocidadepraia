@@ -74,17 +74,44 @@ button { cursor:pointer;padding:8px 14px;border-radius:var(--input-radius);borde
 .remove-btn:hover { background:#c62828; }
 
 .loading, .success-message, .error-message { display:none;padding:8px;border-radius:var(--input-radius);text-align:center;font-weight:600;margin-bottom:10px;}
-.loading { background:#fff7e6;color:#8a6a00;border:1px solid #ffd27a; }
 .success-message { background:#e8f7e8;color:#2e7d32;border:1px solid #b6e4b6;}
 .error-message { background:#ffecec;color:#a12;border:1px solid #f5b6b6; }
 
-/* Ajuste proporcional das colunas da tabela */
 table colgroup col:nth-child(1) { width:15%; }
 table colgroup col:nth-child(2) { width:50%; }
 table colgroup col:nth-child(3) { width:15%; }
 table colgroup col:nth-child(4) { width:20%; }
 .mov-descricao input { width:100%; box-sizing:border-box; text-align:left; }
 .mov-doc input, .mov-valor input { width:100%; box-sizing:border-box; }
+
+/* SPINNER OVERLAY */
+#loading {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(255,255,255,0.7);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  color: var(--green);
+  font-weight: bold;
+  font-size: 16px;
+}
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid var(--green);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg);}
+  100% { transform: rotate(360deg);}
+}
 </style>
 </head>
 <body>
@@ -131,13 +158,7 @@ table colgroup col:nth-child(4) { width:20%; }
 
     <div class="table-section">
       <table>
-        <colgroup>
-          <col>
-          <col>
-          <col>
-          <col>
-          <col>
-        </colgroup>
+        <colgroup><col><col><col><col><col></colgroup>
         <thead>
           <tr>
             <th>TIPO</th>
@@ -156,12 +177,17 @@ table colgroup col:nth-child(4) { width:20%; }
       <button type="submit" id="saveBtn">Salvar na Planilha</button>
     </div>
 
-    <div class="loading" id="loading">Enviando dados, por favor aguarde...</div>
     <div class="success-message" id="success-message">
       Dados salvos com sucesso! <div>ID da transação: <span id="saved-id"></span></div>
     </div>
     <div class="error-message" id="error-message">Ocorreu um erro ao salvar os dados.</div>
   </form>
+</div>
+
+<!-- SPINNER CENTRAL -->
+<div id="loading">
+  <div class="spinner"></div>
+  Gravando dados, por favor aguarde...
 </div>
 
 <script>
@@ -182,10 +208,11 @@ const savedIdSpan = document.getElementById('saved-id');
 let currentId = '';
 const scriptURL = "https://script.google.com/macros/s/AKfycbz2l1yPqR3j2o3XE8AGPGISsjG8yVWq6_8TFNDPeMC54hDpymQ_-iwwlPVyjTjcO1pi4Q/exec";
 
-function generateId() { return new Date().toISOString().replace(/[-:.TZ]/g,''); }
-function updateId() { currentId = generateId(); currentIdSpan.textContent = currentId; }
+function generateId(){return new Date().toISOString().replace(/[-:.TZ]/g,'');}
+function updateId(){currentId=generateId();currentIdSpan.textContent=currentId;}
 
-function generateWeekOptions(baseDate) {
+function pad(n){return n<10?'0'+n:n;}
+function generateWeekOptions(baseDate){
   const date = baseDate ? new Date(baseDate) : new Date();
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -198,7 +225,9 @@ function generateWeekOptions(baseDate) {
     end.setDate(start.getDate()+6);
     if(end>lastDay) end=lastDay;
     const opt = document.createElement('option');
-    opt.value = `Semana ${count} - ${start.getDate()}/${month+1} a ${end.getDate()}/${month+1}`;
+    const startFmt = `${pad(start.getDate())}/${pad(start.getMonth()+1)}`;
+    const endFmt = `${pad(end.getDate())}/${pad(end.getMonth()+1)}`;
+    opt.value = `Semana ${count} - ${startFmt} a ${endFmt}`;
     opt.textContent = opt.value;
     semanaSelect.appendChild(opt);
     start.setDate(start.getDate()+7);
@@ -206,7 +235,7 @@ function generateWeekOptions(baseDate) {
   }
 }
 
-function addRow(tipo='Entrada', desc='', doc='', valor=0){
+function addRow(tipo='Entrada',desc='',doc='',valor=0){
   const tr=document.createElement('tr');
   tr.innerHTML=`
     <td><select class="mov-tipo">
@@ -217,66 +246,66 @@ function addRow(tipo='Entrada', desc='', doc='', valor=0){
     <td class="mov-doc">
       <input type="text" value="${doc}"
         onkeydown="return /^[0-9.-]$|Backspace|Delete|ArrowLeft|ArrowRight|Tab/.test(event.key)"
-        onpaste="event.preventDefault(); let paste=event.clipboardData.getData('text'); this.value=paste.replace(/[^0-9.-]/g,'');"
-      >
+        onpaste="event.preventDefault();let p=event.clipboardData.getData('text');this.value=p.replace(/[^0-9.-]/g,'');">
     </td>
     <td class="mov-valor"><input type="number" step="0.01" min="0" value="${valor>0?valor.toFixed(2):''}" required></td>
-    <td><button type="button" class="remove-btn">Remover</button></td>
-  `;
+    <td><button type="button" class="remove-btn">Remover</button></td>`;
   movimentacoesBody.appendChild(tr);
-  tr.querySelector('.remove-btn').onclick = ()=>{ tr.remove(); calculateTotals(); }
-  tr.querySelector('.mov-tipo').onchange = ()=>{ updateRowStyle(tr); calculateTotals(); }
+  tr.querySelector('.remove-btn').onclick=()=>{ if(confirm('Deseja realmente remover esta linha?')){tr.remove();calculateTotals();}};
+  tr.querySelector('.mov-tipo').onchange=()=>{updateRowStyle(tr);calculateTotals();};
   tr.querySelectorAll('input').forEach(el=>el.oninput=calculateTotals);
   updateRowStyle(tr);
   calculateTotals();
 }
 
 function updateRowStyle(row){
-  const tipo = row.querySelector('.mov-tipo').value;
-  if(tipo==='Saída') row.classList.add('saida-row'); else row.classList.remove('saida-row');
+  const tipo=row.querySelector('.mov-tipo').value;
+  if(tipo==='Saída')row.classList.add('saida-row');else row.classList.remove('saida-row');
 }
 
 function calculateTotals(){
-  let entradas=0, saidas=0;
-  movimentacoesBody.querySelectorAll('tr').forEach(row=>{
-    const tipo = row.querySelector('.mov-tipo').value;
-    const val = parseFloat(row.querySelector('.mov-valor input').value) || 0;
-    tipo==='Entrada'?entradas+=val:saidas+=val;
+  let e=0,s=0;
+  movimentacoesBody.querySelectorAll('tr').forEach(r=>{
+    const t=r.querySelector('.mov-tipo').value;
+    const v=parseFloat(r.querySelector('.mov-valor input').value)||0;
+    t==='Entrada'?e+=v:s+=v;
   });
-  totalEntradasSpan.textContent = `R$ ${entradas.toFixed(2).replace('.',',')}`;
-  totalSaidasSpan.textContent = `R$ ${saidas.toFixed(2).replace('.',',')}`;
-  saldoFinalSpan.textContent = `R$ ${(entradas-saidas).toFixed(2).replace('.',',')}`;
+  totalEntradasSpan.textContent=`R$ ${e.toFixed(2).replace('.',',')}`;
+  totalSaidasSpan.textContent=`R$ ${s.toFixed(2).replace('.',',')}`;
+  saldoFinalSpan.textContent=`R$ ${(e-s).toFixed(2).replace('.',',')}`;
 }
 
-form.addEventListener('submit', ev=>{
+form.addEventListener('submit',ev=>{
   ev.preventDefault();
-  const movimentacoes=[];
-  movimentacoesBody.querySelectorAll('tr').forEach(row=>{
-    const tipo=row.querySelector('.mov-tipo').value;
-    const descricao=row.querySelector('.mov-descricao input').value;
-    const numerodoc=row.querySelector('.mov-doc input').value;
-    const valor=parseFloat(row.querySelector('.mov-valor input').value)||0;
-    if(descricao||numerodoc||valor>0) movimentacoes.push({tipo,descricao,numerodoc,valor});
+  const movs=[];
+  movimentacoesBody.querySelectorAll('tr').forEach(r=>{
+    const tipo=r.querySelector('.mov-tipo').value;
+    const descricao=r.querySelector('.mov-descricao input').value;
+    const numerodoc=r.querySelector('.mov-doc input').value;
+    const valor=parseFloat(r.querySelector('.mov-valor input').value)||0;
+    if(descricao||numerodoc||valor>0)movs.push({tipo,descricao,numerodoc,valor});
   });
-  if(movimentacoes.length===0){ alert('Preencha pelo menos uma linha.'); return; }
-
+  if(movs.length===0){alert('Preencha pelo menos uma linha.');return;}
   const payload={
     data:dataInput.value,
     semana:semanaSelect.value,
     movimentador:movimentadorInput.value,
-    totalentradas:movimentacoes.filter(m=>m.tipo==='Entrada').reduce((s,m)=>s+m.valor,0),
-    totalsaidas:movimentacoes.filter(m=>m.tipo==='Saída').reduce((s,m)=>s+m.valor,0),
-    saldo:movimentacoes.filter(m=>m.tipo==='Entrada').reduce((s,m)=>s+m.valor,0)-movimentacoes.filter(m=>m.tipo==='Saída').reduce((s,m)=>s+m.valor,0),
-    movimentacoes,
+    totalentradas:movs.filter(m=>m.tipo==='Entrada').reduce((s,m)=>s+m.valor,0),
+    totalsaidas:movs.filter(m=>m.tipo==='Saída').reduce((s,m)=>s+m.valor,0),
+    saldo:movs.filter(m=>m.tipo==='Entrada').reduce((s,m)=>s+m.valor,0)-movs.filter(m=>m.tipo==='Saída').reduce((s,m)=>s+m.valor,0),
+    movimentacoes:movs,
     id:currentId
   };
 
-  loadingEl.style.display='block';
+  // Mostra o spinner
+  loadingEl.style.display='flex';
   successEl.style.display='none';
   errorEl.style.display='none';
 
-  fetch(scriptURL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-  .then(()=>{
+  fetch(scriptURL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+
+  // Simula conclusão após 1.5s
+  setTimeout(()=>{
     loadingEl.style.display='none';
     successEl.style.display='block';
     savedIdSpan.textContent=currentId;
@@ -284,18 +313,12 @@ form.addEventListener('submit', ev=>{
     addRow();
     updateId();
     setTimeout(()=>successEl.style.display='none',5000);
-  })
-  .catch(err=>{
-    loadingEl.style.display='none';
-    errorEl.style.display='block';
-    errorEl.textContent=`Erro: ${err.message||err}`;
-  });
+  },1500);
 });
 
-addRowBtn.onclick = ()=>addRow();
-dataInput.onchange = ()=>generateWeekOptions(dataInput.value);
-
-document.addEventListener('DOMContentLoaded', ()=>{
+addRowBtn.onclick=()=>addRow();
+dataInput.onchange=()=>generateWeekOptions(dataInput.value);
+document.addEventListener('DOMContentLoaded',()=>{
   dataInput.valueAsDate=new Date();
   generateWeekOptions(new Date());
   addRow();
